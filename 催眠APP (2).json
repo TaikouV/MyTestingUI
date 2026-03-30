@@ -167,7 +167,7 @@
                     "id": "53757492-5ce3-4ad7-ad1a-334c41088542",
                     "scriptName": "主仓库",
                     "findRegex": "<\\s*StatusPlaceHolderImpl\\s*\\/>",
-                    "replaceString": "```\n<body>\n<script>\n$('body').load('https://cdn.jsdelivr.net/gh/Ramiel-s/HypnosisAPP2/dist/%E5%82%AC%E7%9C%A0APP%E5%89%8D%E7%AB%AF/index.html')\n</script>\n</body>\n```",
+                    "replaceString": "```\n<body>\n<script>\n$('body').load('https://cdn.jsdelivr.net/gh/TaikouV/MyTestingUI@main/dist/%E5%82%AC%E7%9C%A0APP%E5%89%8D%E7%AB%AF/index.html')\n</script>\n</body>\n```",
                     "trimStrings": [],
                     "placement": [
                         2
