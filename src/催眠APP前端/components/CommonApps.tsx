@@ -341,10 +341,11 @@ const BodyScanApp: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
       <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4">
         {loading ? (
-          <div className="space-y-3">
-            <div className="h-14 rounded-2xl bg-white/5 border border-white/10 animate-pulse" />
-            <div className="h-28 rounded-2xl bg-white/5 border border-white/10 animate-pulse" />
-            <div className="h-28 rounded-2xl bg-white/5 border border-white/10 animate-pulse" />
+          <div className="h-full flex flex-col items-center justify-center text-white/50 text-sm">
+            <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-3 animate-pulse">
+              <Activity className="text-cyan-300" />
+            </div>
+            等待数据载入...
           </div>
         ) : roleNames.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-white/50 text-sm">

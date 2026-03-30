@@ -16,6 +16,8 @@ import {
   StopCircle,
   RefreshCcw,
   ArrowLeft,
+  User,
+  Search,
 } from 'lucide-react';
 
 interface HypnosisAppProps {
@@ -357,6 +359,24 @@ export const HypnosisApp: React.FC<HypnosisAppProps> = ({ userData, onUpdateUser
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showLowEnergyModal, setShowLowEnergyModal] = useState(false);
 
+  // Character Selection State
+  const [roles, setRoles] = useState<Record<string, any>>({});
+  const [selectedRole, setSelectedRole] = useState<string | null>(null);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [roleSearch, setRoleSearch] = useState('');
+  const selectorRef = useRef<HTMLDivElement | null>(null);
+
+  // Derived role names
+  const roleNames = useMemo(
+    () => Object.keys(roles).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    [roles],
+  );
+  const filteredRoleNames = useMemo(() => {
+    const q = roleSearch.trim();
+    if (!q) return roleNames;
+    return roleNames.filter(name => name.includes(q));
+  }, [roleNames, roleSearch]);
+
   // Load Features on Mount
   useEffect(() => {
     let stopped = false;
@@ -375,6 +395,43 @@ export const HypnosisApp: React.FC<HypnosisAppProps> = ({ userData, onUpdateUser
       stopped = true;
     };
   }, []);
+
+  // Load Roles on Mount
+  useEffect(() => {
+    let stopped = false;
+    void (async () => {
+      try {
+        const rolesData = await MvuBridge.getRoles();
+        if (stopped) return;
+        if (rolesData) {
+          setRoles(rolesData);
+          const names = Object.keys(rolesData).filter(Boolean).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+          if (names.length > 0 && !selectedRole) {
+            setSelectedRole(names[0]);
+          }
+        }
+      } catch (err) {
+        console.warn('[HypnoOS] Failed to load roles', err);
+      }
+    })();
+    return () => {
+      stopped = true;
+    };
+  }, []);
+
+  // Close selector when clicking outside
+  useEffect(() => {
+    if (!selectorOpen) return;
+    const onMouseDown = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (selectorRef.current && !selectorRef.current.contains(target)) {
+        setSelectorOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [selectorOpen]);
 
   useEffect(() => {
     return () => {
@@ -829,6 +886,7 @@ export const HypnosisApp: React.FC<HypnosisAppProps> = ({ userData, onUpdateUser
         features: enabledFeatures,
         durationMinutes: duration,
         globalNote,
+        targetCharacter: selectedRole,
       });
 
       if (typeof createChatMessages === 'function' && typeof triggerSlash === 'function') {
@@ -1462,11 +1520,77 @@ export const HypnosisApp: React.FC<HypnosisAppProps> = ({ userData, onUpdateUser
         ref={footerControlsRef}
         className="bg-gray-900/95 backdrop-blur-xl border-t border-white/10 p-4 pb-8 rounded-t-2xl shadow-[0_-5px_30px_rgba(0,0,0,0.6)] animate-slide-up shrink-0"
       >
+        {/* Character Selector */
+        <div className="mb-3">
+          <div ref={selectorRef} className="relative">
+            <label className="text-[10px] text-gray-500 mb-1 block">催眠目标</label>
+            <button
+              onClick={() => {
+                setRoleSearch('');
+                setSelectorOpen(v => !v);
+              }}
+              className="w-full px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-sm text-white/85 flex items-center justify-between gap-2 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <User size={14} className="text-pink-400" />
+                <span className="truncate">{selectedRole ?? '选择目标角色'}</span>
+              </div>
+              <ChevronDown size={14} className="text-white/30" />
+            </button>
+
+            {selectorOpen && (
+              <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-white/10 bg-gray-900 shadow-[0_10px_40px_rgba(0,0,0,0.6)] overflow-hidden">
+                <div className="p-3 border-b border-white/10 bg-black/20">
+                  <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                    <Search size={14} className="text-white/40" />
+                    <input
+                      value={roleSearch}
+                      onChange={e => setRoleSearch(e.target.value)}
+                      placeholder="搜索角色..."
+                      className="w-full bg-transparent text-xs text-white/80 placeholder:text-white/30 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="max-h-[30vh] overflow-y-auto no-scrollbar p-2 space-y-1">
+                  {filteredRoleNames.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-white/40">
+                      {roleNames.length === 0 ? '暂无角色数据' : '未找到匹配角色'}
+                    </div>
+                  ) : (
+                    filteredRoleNames.map(name => {
+                      const active = name === selectedRole;
+                      return (
+                        <button
+                          key={name}
+                          onClick={() => {
+                            setSelectedRole(name);
+                            setSelectorOpen(false);
+                          }}
+                          className={[
+                            'w-full text-left px-3 py-2 rounded-xl border transition-colors flex items-center justify-between gap-3',
+                            active
+                              ? 'bg-pink-500/20 border-pink-400/30'
+                              : 'bg-white/0 border-white/5 hover:bg-white/5 hover:border-white/10',
+                          ].join(' ')}
+                        >
+                          <span className="text-sm text-white/90 truncate">{name}</span>
+                          {active && <User size={14} className="text-pink-300" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Global Note */}
         <div className="mb-4">
           <input
             type="text"
-            placeholder="可以输入你要催眠谁, 怎么催眠或者其他备注"
+            placeholder={selectedRole ? `对 ${selectedRole} 的催眠备注...` : '催眠方式或其他备注'}
             value={globalNote}
             onChange={e => setGlobalNote(e.target.value)}
             className="w-full bg-black/40 border-b border-white/20 px-2 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-pink-500 transition-colors"

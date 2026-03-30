@@ -133,7 +133,11 @@ export const MvuBridge = {
     const data = await getMvuData();
     if (!data) return null;
     const roles = _.get(data.mvu, 'stat_data.角色');
-    return _.isPlainObject(roles) ? (roles as any) : null;
+    // Check if roles is a valid non-empty object
+    if (!roles || !_.isPlainObject(roles)) return null;
+    // Return null if the roles object is empty (no characters defined)
+    if (Object.keys(roles).length === 0) return null;
+    return roles as Record<string, any>;
   },
 
   getTasks: async (): Promise<Record<string, any> | null> => {

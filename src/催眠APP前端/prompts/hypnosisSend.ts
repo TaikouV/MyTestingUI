@@ -16,10 +16,12 @@ export function buildHypnosisSendMessage({
   features,
   durationMinutes,
   globalNote,
+  targetCharacter,
 }: {
   features: HypnosisFeature[];
   durationMinutes: number;
   globalNote: string;
+  targetCharacter?: string | null;
 }): string {
   const selected = features.filter(f => f.isEnabled);
   const names = selected.map(f => f.title).filter(Boolean);
@@ -41,6 +43,10 @@ export function buildHypnosisSendMessage({
 
   const lines: string[] = [];
   lines.push('<催眠发送>');
+  // Add target character if selected
+  if (targetCharacter) {
+    lines.push(`目标角色: ${targetCharacter}`);
+  }
   lines.push(`开启的功能名列表: ${names.length ? names.join('、') : ''}`);
   lines.push('本次的催眠效果:');
 
