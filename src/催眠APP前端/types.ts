@@ -60,7 +60,7 @@ export interface Quest {
   status: QuestStatus;
   // Fields for dynamic character binding
   sourceTemplateId?: string; // Original template ID before character substitution
-  characterBindings?: Record<string, string>; // e.g., { charA: "西园寺爱丽莎", charB: "犬冢夏美" }
+  characterBindings?: Record<string, string>; // e.g., { charA: "角色A", charB: "角色B" }
 }
 
 // Data payload for backend submission
