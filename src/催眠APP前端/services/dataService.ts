@@ -2,15 +2,15 @@ import { z } from 'zod';
 import { QUEST_DB, type QuestDefinition } from '../data/questDb';
 import { Achievement, HypnosisFeature, Quest, QuestStatus, UserResources } from '../types';
 import {
-  canSubscribeTier,
-  canUseFeature as canUseFeatureBySubscription,
-  getBodyStatsUnlocked,
-  getSubscriptionUnlockThreshold,
-  isSubscriptionActive,
-  SUBSCRIPTION_TIERS,
-  type AccessContext,
-  type SubscriptionState,
-  type SubscriptionTier,
+    canSubscribeTier,
+    canUseFeature as canUseFeatureBySubscription,
+    getBodyStatsUnlocked,
+    getSubscriptionUnlockThreshold,
+    isSubscriptionActive,
+    SUBSCRIPTION_TIERS,
+    type AccessContext,
+    type SubscriptionState,
+    type SubscriptionTier,
 } from './access';
 import { MvuBridge } from './mvuBridge';
 
@@ -499,6 +499,29 @@ function toFiniteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Module-level cache for live role stats, updated on each getAchievements call */
+let _latestRolesSnapshot: Record<string, any> = {};
+let _latestSystemSnapshot: Record<string, any> = {};
+
+/**
+ * Get a cached role stat value from the latest snapshot.
+ * This is synchronous and should be called after getAchievements() has populated the cache.
+ */
+function getCachedRoleStat(roleName: string, statKey: string): number {
+  const roleData = _latestRolesSnapshot?.[roleName];
+  if (roleData && typeof roleData === 'object') {
+    return toFiniteNumber((roleData as Record<string, unknown>)[statKey]) ?? 0;
+  }
+  return 0;
+}
+
+/**
+ * Get a cached system stat value from the latest snapshot.
+ */
+function getCachedSystemStat(statKey: string): number {
+  return toFiniteNumber(_latestSystemSnapshot?.[statKey]) ?? 0;
+}
+
 function normalizeSystemAliases(systemRaw: Record<string, any>) {
   const existingEnergy = toFiniteNumber(systemRaw._MC能量);
   if (existingEnergy === null) {
@@ -679,6 +702,10 @@ const STATIC_ACHIEVEMENTS: Array<Omit<Achievement, 'isClaimed'>> = [
 async function buildRoleBasedAchievements(store: PersistedStore): Promise<Array<Omit<Achievement, 'isClaimed'>>> {
   const { system, roles } = await getRolesAndSystemSnapshot();
 
+  // Update module-level cache for synchronous checkCondition calls
+  _latestRolesSnapshot = roles ?? {};
+  _latestSystemSnapshot = system ?? {};
+
   const achievements: Array<Omit<Achievement, 'isClaimed'>> = [];
 
   achievements.push({
@@ -689,18 +716,16 @@ async function buildRoleBasedAchievements(store: PersistedStore): Promise<Array<
     checkCondition: () => Boolean(store.hasUsedHypnosis),
   });
 
-  const suspicion = toFiniteNumber(system?.主角可疑度) ?? 0;
   for (const t of [25, 50, 75, 100]) {
     achievements.push({
       id: makeAchievementId('ach_suspicion', String(t)),
       title: `主角可疑度达到 ${t}`,
       description: `主角可疑度达到 ${t}%（系统.主角可疑度）`,
       rewardMcPoints: t,
-      checkCondition: () => suspicion >= t,
+      checkCondition: () => getCachedSystemStat('主角可疑度') >= t,
     });
   }
 
-  const energyMax = toFiniteNumber(system?._MC能量上限) ?? 0;
   const energyMaxThresholds: Array<[number, number]> = [
     [100, 10],
     [300, 30],
@@ -712,7 +737,7 @@ async function buildRoleBasedAchievements(store: PersistedStore): Promise<Array<
       title: `MC能量上限达到 ${t}`,
       description: `MC能量上限达到 ${t}（系统._MC能量上限）`,
       rewardMcPoints: reward,
-      checkCondition: () => energyMax >= t,
+      checkCondition: () => getCachedSystemStat('_MC能量上限') >= t,
     });
   }
 
@@ -725,58 +750,126 @@ async function buildRoleBasedAchievements(store: PersistedStore): Promise<Array<
     if (!roleDataRaw || typeof roleDataRaw !== 'object') continue;
     const roleData = roleDataRaw as Record<string, any>;
 
-    const guard = toFiniteNumber(roleData['警戒度']) ?? 0;
-    const obey = toFiniteNumber(roleData['服从度']) ?? 0;
-
     for (const t of percentThresholds) {
       achievements.push({
         id: makeAchievementId('ach_role_guard', roleName, String(t)),
         title: `${roleName} 警戒度达到 ${t}`,
         description: `${roleName} 的警戒度达到 ${t}（角色.${roleName}.警戒度）`,
         rewardMcPoints: t,
-        checkCondition: () => guard >= t,
+        checkCondition: () => getCachedRoleStat(roleName, '警戒度') >= t,
       });
       achievements.push({
         id: makeAchievementId('ach_role_obey', roleName, String(t)),
         title: `${roleName} 服从度达到 ${t}`,
         description: `${roleName} 的服从度达到 ${t}（角色.${roleName}.服从度）`,
         rewardMcPoints: t,
-        checkCondition: () => obey >= t,
+        checkCondition: () => getCachedRoleStat(roleName, '服从度') >= t,
       });
     }
 
     const sensitivityKeys = Object.keys(roleData).filter(k => k.includes('敏感度'));
     for (const key of sensitivityKeys) {
-      const value = toFiniteNumber(roleData[key]);
-      if (value === null) continue;
       for (const t of sensitivityThresholds) {
         achievements.push({
           id: makeAchievementId('ach_sensitivity', roleName, key, String(t)),
           title: `${roleName}·${key} ≥ ${t}`,
           description: `${roleName} 的 ${key} 达到 ${t}（角色.${roleName}.${key}）`,
           rewardMcPoints: 20,
-          checkCondition: () => value >= t,
+          checkCondition: () => getCachedRoleStat(roleName, key) >= t,
         });
       }
     }
 
     const orgasmKeys = Object.keys(roleData).filter(k => k.includes('高潮次数'));
     for (const key of orgasmKeys) {
-      const value = toFiniteNumber(roleData[key]);
-      if (value === null) continue;
       for (const t of orgasmThresholds) {
         achievements.push({
           id: makeAchievementId('ach_orgasm', roleName, key, String(t)),
           title: `${roleName}·${key} ≥ ${t}`,
           description: `${roleName} 的 ${key} 达到 ${t}（角色.${roleName}.${key}）`,
           rewardMcPoints: 20,
-          checkCondition: () => value >= t,
+          checkCondition: () => getCachedRoleStat(roleName, key) >= t,
         });
       }
     }
   }
 
   return achievements;
+}
+
+/**
+ * Build dynamic quest instances from templates, substituting available characters.
+ * For quests with characterCount=1, generates one variant per character.
+ * For quests with characterCount=2, generates variants for all unique character pairs.
+ */
+async function buildDynamicQuests(): Promise<QuestDefinition[]> {
+  const { roles } = await getRolesAndSystemSnapshot();
+  const characterNames = Object.keys(roles ?? {}).filter(name => name && name.trim());
+
+  const dynamicQuests: QuestDefinition[] = [];
+
+  for (const template of QUEST_DATABASE) {
+    // If no characterCount, it's a generic quest - keep as-is
+    if (!template.characterCount) {
+      dynamicQuests.push(template);
+      continue;
+    }
+
+    // Skip if no characters available
+    if (characterNames.length === 0) continue;
+
+    if (template.characterCount === 1) {
+      // Generate one quest per character
+      for (const charA of characterNames) {
+        const newId = `${template.id}__${idSafe(charA)}`;
+        const newName = template.nameTemplate
+          ? template.nameTemplate.replace('{charA}', charA)
+          : `${template.name}-${charA}`;
+        const newCondition = template.conditionTemplate
+          ? template.conditionTemplate.replace(/{charA}/g, charA)
+          : template.condition;
+
+        dynamicQuests.push({
+          id: newId,
+          name: newName,
+          condition: newCondition,
+          rewardMcPoints: template.rewardMcPoints,
+          characterCount: 1,
+          conditionTemplate: template.conditionTemplate,
+          nameTemplate: template.nameTemplate,
+        });
+      }
+    } else if (template.characterCount === 2) {
+      // Generate quests for all unique character pairs
+      for (let i = 0; i < characterNames.length; i++) {
+        for (let j = 0; j < characterNames.length; j++) {
+          if (i === j) continue; // Skip same character
+          const charA = characterNames[i];
+          const charB = characterNames[j];
+
+          const newId = `${template.id}__${idSafe(charA)}__${idSafe(charB)}`;
+          const newName = template.nameTemplate
+            ? template.nameTemplate.replace('{charA}', charA).replace('{charB}', charB)
+            : `${template.name}-${charA}&${charB}`;
+          const newCondition = template.conditionTemplate
+            ? template.conditionTemplate.replace(/{charA}/g, charA).replace(/{charB}/g, charB)
+            : template.condition;
+
+          dynamicQuests.push({
+            id: newId,
+            name: newName,
+            condition: newCondition,
+            rewardMcPoints: template.rewardMcPoints,
+            characterCount: 2,
+            conditionTemplate: template.conditionTemplate,
+            nameTemplate: template.nameTemplate,
+          });
+        }
+      }
+    }
+  }
+
+  return dynamicQuests;
 }
 
 function validateQuestDb(db: QuestDefinition[]) {
@@ -1149,7 +1242,10 @@ export const DataService = {
     const claimed = store.quests ?? {};
     const tasks = (await MvuBridge.getTasks().catch(() => null)) ?? {};
 
-    const quests = QUEST_DATABASE.map(q => {
+    // Build dynamic quest list from templates
+    const dynamicQuestDb = await buildDynamicQuests();
+
+    const quests = dynamicQuestDb.map(q => {
       const locked = claimed[q.id] === 'CLAIMED';
       if (locked) {
         return {
@@ -1200,22 +1296,24 @@ export const DataService = {
   },
 
   acceptQuest: async (id: string): Promise<{ success: boolean; message?: string }> => {
-    const def = QUEST_DATABASE.find(q => q.id === id);
+    // Find quest from dynamic quest database
+    const dynamicQuestDb = await buildDynamicQuests();
+    const def = dynamicQuestDb.find(q => q.id === id);
     if (!def) return { success: false, message: '未知任务' };
     if (def.name.includes('.')) return { success: false, message: '任务名不能包含“.”' };
-
+  
     const { store } = normalizeChatVariables(getVariables(CHAT_OPTION));
     if (store.quests?.[def.id] === 'CLAIMED') return { success: false, message: '该任务已完成并锁定' };
-
+  
     const tasks = await MvuBridge.getTasks();
     if (!tasks) return { success: false, message: 'MVU 未就绪，无法接取任务' };
-
+  
     const activeTaskNames = Object.entries(tasks).filter(
       ([, v]) => v && typeof v === 'object' && typeof (v as any).已完成 === 'boolean',
     );
     if (activeTaskNames.length >= 3) return { success: false, message: '同时最多只能接取3个任务' };
     if ((tasks as any)[def.name]) return { success: false, message: '该任务已在进行中' };
-
+  
     try {
       await MvuBridge.setTask(def.name, { 完成条件: def.condition, 已完成: false });
       const after = await MvuBridge.getTasks();
@@ -1230,18 +1328,20 @@ export const DataService = {
   },
 
   cancelQuest: async (id: string): Promise<{ success: boolean; message?: string }> => {
-    const def = QUEST_DATABASE.find(q => q.id === id);
+    // Find quest from dynamic quest database
+    const dynamicQuestDb = await buildDynamicQuests();
+    const def = dynamicQuestDb.find(q => q.id === id);
     if (!def) return { success: false, message: '未知任务' };
-    if (def.name.includes('.')) return { success: false, message: '任务名不能包含“.”' };
-
+    if (def.name.includes('.')) return { success: false, message: '任务名不能包含“。”' };
+  
     const { store } = normalizeChatVariables(getVariables(CHAT_OPTION));
     if (store.quests?.[def.id] === 'CLAIMED') return { success: false, message: '该任务已完成并锁定' };
-
+  
     const tasks = await MvuBridge.getTasks();
     if (!tasks) return { success: false, message: 'MVU 未就绪，无法取消任务' };
-
+  
     if (!(def.name in (tasks as any))) return { success: false, message: '该任务未在进行中' };
-
+  
     try {
       await MvuBridge.deleteTask(def.name);
       const after = await MvuBridge.getTasks();
@@ -1254,7 +1354,9 @@ export const DataService = {
   },
 
   claimQuest: async (id: string, currentPoints: number): Promise<{ success: boolean; newPoints: number }> => {
-    const def = QUEST_DATABASE.find(q => q.id === id);
+    // Find quest from dynamic quest database
+    const dynamicQuestDb = await buildDynamicQuests();
+    const def = dynamicQuestDb.find(q => q.id === id);
     if (!def) return { success: false, newPoints: currentPoints };
     if (def.name.includes('.')) return { success: false, newPoints: currentPoints };
 

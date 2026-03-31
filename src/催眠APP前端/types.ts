@@ -58,6 +58,9 @@ export interface Quest {
   description: string;
   rewardMcPoints: number;
   status: QuestStatus;
+  // Fields for dynamic character binding
+  sourceTemplateId?: string; // Original template ID before character substitution
+  characterBindings?: Record<string, string>; // e.g., { charA: "西园寺爱丽莎", charB: "犬冢夏美" }
 }
 
 // Data payload for backend submission

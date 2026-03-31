@@ -3,6 +3,10 @@ export interface QuestDefinition {
   name: string; // Used as MVU key under `任务.<name>`
   condition: string;
   rewardMcPoints: number;
+  // Template fields for dynamic character generation
+  characterCount?: 1 | 2; // Number of character slots to substitute
+  conditionTemplate?: string; // Template with {charA}, {charB} placeholders
+  nameTemplate?: string; // Template for quest name with {charA}, {charB}
 }
 
 export const QUEST_DB: QuestDefinition[] = [
@@ -15,7 +19,10 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_cuckold_request',
     name: '绿帽请求',
+    nameTemplate: '绿帽请求-{charA}',
     condition: '让阿宅君请求你跟爱丽莎发生关系。',
+    conditionTemplate: '让{charA}请求你跟{charB}发生关系。',
+    characterCount: 2,
     rewardMcPoints: 40,
   },
   {
@@ -33,7 +40,10 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_stealth_sex',
     name: '隐奸',
+    nameTemplate: '隐奸-{charA}',
     condition: '在阿宅君没发现的情况下在他面前跟爱丽莎发生关系(隐奸)。',
+    conditionTemplate: '在{charA}没发现的情况下在他面前跟{charB}发生关系(隐奸)。',
+    characterCount: 2,
     rewardMcPoints: 30,
   },
   {
@@ -51,7 +61,10 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_proxy_hypno',
     name: '代理催眠',
+    nameTemplate: '代理催眠-{charA}',
     condition: '让一名角色用APP催眠另一名角色。',
+    conditionTemplate: '让{charA}用APP催眠{charB}。',
+    characterCount: 2,
     rewardMcPoints: 40,
   },
   {
@@ -105,7 +118,10 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_yuri_action',
     name: '百合花开',
+    nameTemplate: '百合花开-{charA}',
     condition: '让两名女角色相互亲热。',
+    conditionTemplate: '让{charA}和{charB}相互亲热。',
+    characterCount: 2,
     rewardMcPoints: 15,
   },
   {
@@ -129,25 +145,37 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_ntr_report',
     name: '寝取报告',
+    nameTemplate: '寝取报告-{charA}',
     condition: '让爱丽莎给阿宅君进行寝取报告。',
+    conditionTemplate: '让{charA}给{charB}进行寝取报告。',
+    characterCount: 2,
     rewardMcPoints: 35,
   },
   {
     id: 'quest_best_buddy',
     name: '好哥们',
+    nameTemplate: '好哥们-{charA}',
     condition: '给阿宅君发送爱丽莎的色情影片，但不要让他认出是爱丽莎。',
+    conditionTemplate: '给{charA}发送{charB}的色情影片，但不要让他认出是{charB}。',
+    characterCount: 2,
     rewardMcPoints: 20,
   },
   {
     id: 'quest_cuckold_awakening',
     name: '绿帽癖觉醒',
+    nameTemplate: '绿帽癖觉醒-{charA}',
     condition: '让阿宅君一边撸管看着你跟爱丽莎做爱。',
+    conditionTemplate: '让{charA}一边撸管看着你跟{charB}做爱。',
+    characterCount: 2,
     rewardMcPoints: 45,
   },
   {
     id: 'quest_male_swimsuit',
     name: '男泳装挑战',
+    nameTemplate: '男泳装挑战-{charA}',
     condition: '让夏美在公众场合穿男泳装。',
+    conditionTemplate: '让{charA}在公众场合穿男泳装。',
+    characterCount: 1,
     rewardMcPoints: 30,
   },
   {
@@ -159,7 +187,10 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_ntr_phone',
     name: '寝取电话',
+    nameTemplate: '寝取电话-{charA}',
     condition: '让爱丽莎一边跟你做爱一边跟阿宅君打电话。',
+    conditionTemplate: '让{charA}一边跟你做爱一边跟{charB}打电话。',
+    characterCount: 2,
     rewardMcPoints: 30,
   },
   {
@@ -171,13 +202,19 @@ export const QUEST_DB: QuestDefinition[] = [
   {
     id: 'quest_cosplay_cm',
     name: 'Cosplay露出',
+    nameTemplate: 'Cosplay露出-{charA}',
     condition: '让爱丽莎穿上非常暴露的cos服去CM。',
+    conditionTemplate: '让{charA}穿上非常暴露的cos服去CM。',
+    characterCount: 1,
     rewardMcPoints: 35,
   },
   {
     id: 'quest_body_paint',
     name: '人体彩绘',
+    nameTemplate: '人体彩绘-{charA}',
     condition: '让夏美在公共场合只涂着人体彩绘。',
+    conditionTemplate: '让{charA}在公共场合只涂着人体彩绘。',
+    characterCount: 1,
     rewardMcPoints: 45,
   },
   {
